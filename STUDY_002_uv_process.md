@@ -47,6 +47,44 @@ Working Dir → pyproject.toml → .venv location → Virtual Environment
 | **Python Installations** | `~/Library/Application Support/uv/python/` | UV-managed Python interpreters |
 | **UV Config** | `~/Library/Application Support/uv/` | UV configuration and state |
 
+#### What is "Application Support"?
+
+**Application Support** is a standard macOS directory structure concept defined by Apple's File System Programming Guide:
+
+- **Real Directory**: `~/Library/Application Support/` is an actual folder on macOS systems
+- **Purpose**: Stores application-specific data files that users shouldn't directly modify
+- **Cross-Platform Equivalent**: 
+  - **Linux**: `~/.local/share/uv/` or `$XDG_DATA_HOME/uv/`
+  - **Windows**: `%APPDATA%\uv\` or `C:\Users\{username}\AppData\Roaming\uv\`
+
+#### Platform-Specific UV Data Locations
+
+| Platform | UV Data Directory | Python Installations | Configuration |
+|----------|------------------|---------------------|---------------|
+| **macOS** | `~/Library/Application Support/uv/` | `~/Library/Application Support/uv/python/` | `~/Library/Application Support/uv/settings.toml` |
+| **Linux** | `~/.local/share/uv/` | `~/.local/share/uv/python/` | `~/.config/uv/settings.toml` |
+| **Windows** | `%APPDATA%\uv\` | `%APPDATA%\uv\python\` | `%APPDATA%\uv\settings.toml` |
+
+#### Why UV Uses Application Support
+
+```
+Application Support Directory Benefits:
+├── User-specific (not system-wide)
+├── Persistent across app updates
+├── Hidden from casual browsing
+├── Follows OS conventions
+└── Automatic backup inclusion (Time Machine, etc.)
+```
+
+You can verify these locations on your system:
+```bash
+# macOS - Check UV's application support directory
+ls -la ~/Library/Application\ Support/uv/
+
+# Show UV's actual data directory
+uv cache dir
+```
+
 ### 2. Path Assignment
 
 UV dynamically constructs execution paths without modifying the system PATH.

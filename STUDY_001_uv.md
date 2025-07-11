@@ -119,6 +119,94 @@ my_project/
     └── my_package/
 ```
 
+## UV's "Automatic" Environment Management Explained
+
+### What Does "Automatic" Mean?
+
+UV's "automatic" environment management means the tool handles environment lifecycle without explicit user commands. Here's the detailed breakdown:
+
+#### Automatic Triggers and Actions
+
+| Trigger Command | When Executed | What UV Does Automatically |
+|----------------|---------------|---------------------------|
+| `uv run python script.py` | First time in project | 1. Detects missing `.venv`<br>2. Creates virtual environment<br>3. Reads `pyproject.toml` dependencies<br>4. Generates `uv.lock` if missing<br>5. Installs all dependencies<br>6. Executes script |
+| `uv run python script.py` | Subsequent times | 1. Checks if `.venv` exists<br>2. Validates environment vs `uv.lock`<br>3. Updates packages if needed<br>4. Executes script |
+| `uv add requests` | Any time | 1. Updates `pyproject.toml`<br>2. Resolves new dependency tree<br>3. Updates `uv.lock`<br>4. Installs new package to `.venv`<br>5. Updates existing packages if needed |
+| `uv sync` | Explicit sync | 1. Reads `uv.lock`<br>2. Ensures `.venv` matches exactly<br>3. Installs missing packages<br>4. Removes extra packages |
+
+#### Detailed Process Flow Example
+
+```bash
+# Starting with empty project directory
+$ ls
+pyproject.toml
+
+$ uv run python hello.py
+# UV automatically performs these steps:
+# 1. Scans current directory for pyproject.toml ✓
+# 2. Checks for existing .venv → Not found
+# 3. Creates .venv directory
+# 4. Downloads appropriate Python interpreter
+# 5. Creates virtual environment in .venv/
+# 6. Reads dependencies from pyproject.toml
+# 7. Resolves dependency tree
+# 8. Creates uv.lock file
+# 9. Downloads packages to global cache
+# 10. Installs packages to .venv/lib/python3.x/site-packages/
+# 11. Executes: .venv/bin/python hello.py
+
+$ ls -la
+.venv/          # ← Created automatically
+pyproject.toml
+uv.lock         # ← Created automatically
+hello.py
+```
+
+#### Comparison: Manual vs Automatic
+
+**Traditional Manual Process:**
+```bash
+python -m venv .venv                    # Manual step 1
+source .venv/bin/activate              # Manual step 2  
+pip install -r requirements.txt       # Manual step 3
+python hello.py                       # Manual step 4
+```
+
+**UV Automatic Process:**
+```bash
+uv run python hello.py                # Single command does all 4 steps
+```
+
+#### Environment Synchronization Details
+
+UV automatically synchronizes the environment on every `uv run` unless disabled:
+
+```bash
+# Scenario: Someone else added a dependency to pyproject.toml
+$ git pull  # Gets updated pyproject.toml with new dependency
+
+$ uv run python script.py
+# UV automatically detects changes and:
+# 1. Compares current .venv with updated requirements
+# 2. Resolves new dependencies
+# 3. Updates uv.lock
+# 4. Installs new packages
+# 5. Runs script with updated environment
+```
+
+#### Disabling Automatic Behavior
+
+```bash
+# Skip automatic sync (use existing environment as-is)
+uv run --frozen python script.py
+
+# Fail if environment is out of sync (don't auto-update)
+uv run --locked python script.py
+
+# Skip environment sync check entirely
+uv run --no-sync python script.py
+```
+
 ## Why UV Requires `uv run`
 
 UV's requirement for `uv run` stems from its design philosophy:
