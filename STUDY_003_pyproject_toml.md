@@ -459,4 +459,357 @@ my-project/
 ├── LICENSE
 ├── CHANGELOG.md
 ├── .gitignore
-├
+├── src/                    # Source layout (recommended)
+│   └── my_package/
+│       ├── __init__.py
+│       ├── main.py
+│       └── utils.py
+├── tests/                  # Test directory
+│   ├── __init__.py
+│   ├── test_main.py
+│   └── test_utils.py
+├── docs/                   # Documentation
+│   ├── conf.py
+│   └── index.rst
+└── scripts/                # Utility scripts
+    └── build.py
+```
+
+#### Configuration Best Practices
+
+##### 1. Use Semantic Versioning
+```toml
+[project]
+version = "1.2.3"  # MAJOR.MINOR.PATCH
+```
+
+##### 2. Specify Python Version Requirements Clearly
+```toml
+[project]
+requires-python = ">=3.8"  # Minimum supported version
+```
+
+##### 3. Pin Dependencies Appropriately
+```toml
+[project]
+dependencies = [
+    "requests>=2.25.0,<3.0.0",  # Compatible range
+    "click>=8.0.0",              # Minimum version
+    "pydantic~=2.0.0",           # Compatible release
+]
+```
+
+##### 4. Organize Dependencies by Purpose
+```toml
+# Runtime dependencies
+[project]
+dependencies = ["requests", "click"]
+
+# Development dependencies
+[dependency-groups]
+dev = ["pytest", "black", "ruff"]
+test = ["pytest", "pytest-cov"]
+docs = ["sphinx", "sphinx-rtd-theme"]
+```
+
+##### 5. Use Descriptive Metadata
+```toml
+[project]
+name = "my-awesome-package"
+description = "A brief, clear description of what the package does"
+keywords = ["relevant", "searchable", "keywords"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+```
+
+### UV-Specific Best Practices
+
+#### 1. Leverage UV's Dependency Groups
+```toml
+[dependency-groups]
+dev = [
+    "pytest>=7.0.0",
+    "black>=22.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+
+# Install with: uv sync --group dev
+```
+
+#### 2. Configure UV Settings
+```toml
+[tool.uv]
+managed = true              # Let UV manage the environment
+dev-dependencies = [        # UV-specific dev deps
+    "pre-commit>=3.0.0",
+]
+python = "3.11"            # Preferred Python version
+```
+
+#### 3. Use UV Workspaces for Multi-Package Projects
+```toml
+# Root pyproject.toml
+[tool.uv.workspace]
+members = ["packages/*"]
+
+# Individual package pyproject.toml
+[project]
+name = "sub-package"
+```
+
+## 6. Simplest Version
+
+### Minimal pyproject.toml for UV Projects
+
+#### Basic Script Project
+```toml
+[project]
+name = "my-script"
+version = "0.1.0"
+description = "A simple Python script"
+dependencies = []
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.0.0",
+]
+```
+
+#### Basic Package Project
+```toml
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "my-package"
+version = "0.1.0"
+description = "A simple Python package"
+requires-python = ">=3.8"
+dependencies = [
+    "requests>=2.25.0",
+]
+
+[project.scripts]
+my-cli = "my_package.main:main"
+```
+
+#### UV-Optimized Minimal Version
+```toml
+[project]
+name = "my-uv-project"
+version = "0.1.0"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest", "ruff"]
+```
+
+### Progressive Enhancement
+
+Start minimal and add sections as needed:
+
+```toml
+# Stage 1: Absolute minimum
+[project]
+name = "my-project"
+version = "0.1.0"
+
+# Stage 2: Add dependencies
+[project]
+dependencies = ["requests"]
+
+# Stage 3: Add development tools
+[dependency-groups]
+dev = ["pytest", "black"]
+
+# Stage 4: Add metadata
+[project]
+description = "My awesome project"
+authors = [{name = "Your Name", email = "you@example.com"}]
+
+# Stage 5: Add tool configurations
+[tool.ruff]
+line-length = 88
+```
+
+## 7. Debug Practices
+
+### Validation and Debugging Tools
+
+#### 1. UV Built-in Validation
+```bash
+# Check pyproject.toml syntax and structure
+uv check
+
+# Show resolved project information
+uv show --project
+
+# Validate dependency resolution
+uv lock --check
+
+# Show dependency tree
+uv tree
+```
+
+#### 2. External Validation Tools
+```bash
+# Install validation tools
+uv add --dev validate-pyproject
+
+# Validate against PEP standards
+python -m validate_pyproject pyproject.toml
+
+# Check with build tools
+python -m build --check-build-dependencies
+```
+
+#### 3. Common Issues and Solutions
+
+##### Issue: Invalid TOML Syntax
+```bash
+# Error: Invalid TOML syntax
+$ uv sync
+Error: Failed to parse pyproject.toml
+
+# Debug: Check TOML syntax
+$ python -c "import tomllib; tomllib.load(open('pyproject.toml', 'rb'))"
+```
+
+##### Issue: Dependency Resolution Conflicts
+```bash
+# Error: Conflicting dependencies
+$ uv lock
+Error: No solution found when resolving dependencies
+
+# Debug: Show conflict details
+$ uv lock --verbose
+
+# Solution: Add constraints
+[tool.uv]
+constraint-dependencies = [
+    "numpy<2.0.0",  # Constrain problematic package
+]
+```
+
+##### Issue: Python Version Incompatibility
+```bash
+# Error: Python version mismatch
+$ uv run python script.py
+Error: Python 3.7 is not compatible with requires-python >=3.8
+
+# Debug: Check Python requirements
+$ uv python list
+
+# Solution: Update Python requirement or install compatible version
+$ uv python install 3.8
+```
+
+### Debugging Workflow
+
+#### 1. Syntax Validation
+```bash
+# Step 1: Validate TOML syntax
+python -c "import tomllib; print('Valid TOML')" 2>/dev/null || echo "Invalid TOML"
+
+# Step 2: Check UV parsing
+uv show --project 2>/dev/null || echo "UV parsing error"
+```
+
+#### 2. Dependency Analysis
+```bash
+# Step 1: Check dependency resolution
+uv lock --dry-run
+
+# Step 2: Analyze dependency tree
+uv tree --depth 2
+
+# Step 3: Check for conflicts
+uv lock --verbose 2>&1 | grep -i conflict
+```
+
+#### 3. Environment Debugging
+```bash
+# Step 1: Check environment status
+uv sync --dry-run
+
+# Step 2: Validate Python version
+uv run python --version
+
+# Step 3: Check installed packages
+uv pip list
+```
+
+### Advanced Debugging Techniques
+
+#### 1. Configuration Precedence Debugging
+```bash
+# Show effective configuration
+uv config show
+
+# Check configuration sources
+uv config show --show-origin
+
+# Test specific configuration
+uv run --python 3.11 python --version
+```
+
+#### 2. Dependency Resolution Debugging
+```bash
+# Enable verbose dependency resolution
+UV_VERBOSE=1 uv lock
+
+# Show resolution steps
+uv lock --verbose --no-cache
+
+# Debug specific package resolution
+uv add --dry-run package-name
+```
+
+#### 3. Build System Debugging
+```bash
+# Test build configuration
+uv build --verbose
+
+# Check build requirements
+python -m build --check-build-dependencies
+
+# Debug setuptools configuration
+python setup.py check --verbose
+```
+
+### Debugging Checklist
+
+#### Pre-flight Checks
+- [ ] TOML syntax is valid
+- [ ] Required fields are present (`name`, `version`)
+- [ ] Python version requirements are realistic
+- [ ] Dependencies use valid version specifiers
+- [ ] Build system is properly configured
+
+#### Common Validation Commands
+```bash
+# Complete validation workflow
+uv check                    # UV-specific validation
+uv lock --check            # Dependency resolution check
+uv sync --dry-run          # Environment sync check
+uv build --check           # Build configuration check
+uv run python -c "print('OK')"  # Runtime check
+```
+
+#### Troubleshooting Reference
+
+| Error Type | Command to Debug | Common Solution |
+|------------|------------------|-----------------|
+| **TOML Syntax** | `python -c "import tomllib; tomllib.load(open('pyproject.toml', 'rb'))"` | Fix TOML syntax errors |
+| **Missing Fields** | `uv show --project` | Add required `name` and `version` |
+| **Dependency Conflicts** | `uv lock --verbose` | Add constraints or update versions |
+| **Python Version** | `uv python list` | Install compatible Python version |
+| **Build Issues** | `uv build --verbose` | Fix build system configuration |
+| **Import Errors** | `uv run python -c "import package"` | Check package installation |
+
+This comprehensive guide provides everything needed to understand, configure, and debug `pyproject.toml` files, especially in the context of UV project management.
