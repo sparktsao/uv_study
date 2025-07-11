@@ -38,6 +38,222 @@ uv run command → Project Detection → Environment Resolution → Environment 
 Working Dir → pyproject.toml → .venv location → Virtual Environment
 ```
 
+## UV's Automatic Detection System
+
+### What Does "Automatic Detection" Mean?
+
+UV's automatic detection refers to systematic search algorithms that locate project files, configurations, and environments without explicit user specification. This follows predictable search orders and priorities.
+
+### 1. Project Root Detection Algorithm
+
+UV uses a hierarchical search pattern to find the project root:
+
+#### Search Order (Priority: High → Low)
+
+| Priority | Search Location | Target File | Action if Found |
+|----------|----------------|-------------|-----------------|
+| **1** | Current working directory | `pyproject.toml` | Use as project root |
+| **2** | Parent directory | `pyproject.toml` | Use parent as project root |
+| **3** | Grandparent directory | `pyproject.toml` | Use grandparent as project root |
+| **4** | Continue up to filesystem root | `pyproject.toml` | Use first match as project root |
+| **5** | No `pyproject.toml` found | N/A | Error or create new project |
+
+#### Detailed Search Algorithm
+
+```bash
+# UV's project detection logic (pseudocode)
+function find_project_root(current_dir):
+    search_dir = current_dir
+    while search_dir != filesystem_root:
+        if exists(search_dir + "/pyproject.toml"):
+            return search_dir
+        search_dir = parent_directory(search_dir)
+    return None  # No project found
+```
+
+#### Real-World Example
+
+```bash
+# Directory structure
+/home/user/projects/my-app/
+├── pyproject.toml          # ← Project root
+├── src/
+│   └── my_package/
+│       └── server.py
+└── tests/
+    └── test_server.py
+
+# From any subdirectory, UV finds the project root
+$ cd /home/user/projects/my-app/src/my_package/
+$ uv run python server.py
+# UV searches:
+# 1. /home/user/projects/my-app/src/my_package/ → No pyproject.toml
+# 2. /home/user/projects/my-app/src/ → No pyproject.toml  
+# 3. /home/user/projects/my-app/ → Found pyproject.toml ✓
+# Project root: /home/user/projects/my-app/
+```
+
+### 2. Environment Detection Algorithm
+
+Once project root is found, UV searches for existing environments:
+
+#### Environment Search Priority
+
+| Priority | Location | Pattern | Purpose |
+|----------|----------|---------|---------|
+| **1** | `{project_root}/.venv/` | Exact match | Project-local environment |
+| **2** | `{project_root}/venv/` | Alternative name | Common alternative |
+| **3** | Environment variable `VIRTUAL_ENV` | If set and valid | Explicit override |
+| **4** | UV-managed environments | `~/.cache/uv/environments/` | UV-created environments |
+| **5** | Create new | `{project_root}/.venv/` | Default creation location |
+
+#### Environment Validation Process
+
+```bash
+# UV's environment validation (pseudocode)
+function validate_environment(env_path):
+    checks = [
+        exists(env_path + "/bin/python"),           # Python executable
+        exists(env_path + "/lib/python*/site-packages/"), # Package directory
+        compatible_python_version(env_path),        # Version compatibility
+        valid_environment_structure(env_path)       # Standard venv structure
+    ]
+    return all(checks)
+```
+
+### 3. Configuration Detection Hierarchy
+
+UV searches for configuration in multiple locations with specific precedence:
+
+#### Configuration Search Order
+
+| Priority | Location | Scope | Override Behavior |
+|----------|----------|-------|-------------------|
+| **1** | `{project_root}/pyproject.toml` | Project-specific | Highest priority |
+| **2** | `{project_root}/uv.toml` | UV-specific project config | Overrides global |
+| **3** | `~/.config/uv/uv.toml` | User-global config | Default settings |
+| **4** | Environment variables | Runtime overrides | `UV_*` variables |
+| **5** | Command-line flags | Explicit overrides | Highest precedence |
+
+#### Configuration Merge Strategy
+
+```bash
+# Configuration precedence (highest to lowest)
+Command Line Flags
+    ↓ (overrides)
+Environment Variables (UV_*)
+    ↓ (overrides)  
+Project pyproject.toml [tool.uv]
+    ↓ (overrides)
+Project uv.toml
+    ↓ (overrides)
+User ~/.config/uv/uv.toml
+    ↓ (defaults)
+Built-in defaults
+```
+
+### 4. Python Interpreter Detection
+
+UV follows a systematic approach to find the appropriate Python interpreter:
+
+#### Python Search Algorithm
+
+| Priority | Source | Location Pattern | Validation |
+|----------|--------|------------------|------------|
+| **1** | Project specification | `pyproject.toml` `requires-python` | Version compatibility |
+| **2** | Existing environment | `.venv/bin/python` | If environment exists |
+| **3** | UV-managed Python | `~/.cache/uv/python/cpython-*` | UV-installed versions |
+| **4** | System PATH | `python3`, `python` | Version check |
+| **5** | Common locations | `/usr/bin/python3`, `/usr/local/bin/python3` | Fallback search |
+
+#### Python Version Resolution
+
+```bash
+# UV's Python resolution logic
+function resolve_python_version(project_requirements):
+    # 1. Check project requirements
+    required_version = parse_requires_python(pyproject.toml)
+    
+    # 2. Find compatible interpreters
+    candidates = find_python_interpreters()
+    compatible = filter_by_version(candidates, required_version)
+    
+    # 3. Prefer UV-managed over system
+    uv_managed = filter_uv_managed(compatible)
+    if uv_managed:
+        return highest_version(uv_managed)
+    
+    # 4. Use system Python if compatible
+    return highest_version(compatible)
+```
+
+### 5. Dependency Detection and Resolution
+
+UV's dependency detection follows a cascading priority system:
+
+#### Dependency Source Priority
+
+| Priority | Source File | Section | Purpose |
+|----------|-------------|---------|---------|
+| **1** | `uv.lock` | All dependencies | Exact versions (if exists) |
+| **2** | `pyproject.toml` | `[project.dependencies]` | Core dependencies |
+| **3** | `pyproject.toml` | `[project.optional-dependencies]` | Optional/extra dependencies |
+| **4** | `pyproject.toml` | `[dependency-groups]` | Development dependencies |
+| **5** | `requirements.txt` | All lines | Legacy format (if no pyproject.toml) |
+
+### 6. Predictable Behavior Patterns
+
+#### Systematic Expectations
+
+You can systematically expect UV's behavior based on these patterns:
+
+```bash
+# Pattern 1: Project Detection
+# UV always searches upward from current directory
+$ cd /any/subdirectory/in/project/
+$ uv run script.py  # Will find project root above
+
+# Pattern 2: Environment Preference  
+# UV prefers .venv in project root over global environments
+$ ls project_root/
+.venv/  pyproject.toml
+$ uv run script.py  # Uses ./venv, not global
+
+# Pattern 3: Configuration Cascade
+# More specific configs override general ones
+$ uv run --python 3.11 script.py  # CLI flag overrides all configs
+
+# Pattern 4: Cache-First Strategy
+# UV checks cache before downloading
+$ uv add requests  # Checks ~/.cache/uv/ first
+```
+
+#### Error Conditions and Fallbacks
+
+| Condition | UV Behavior | Fallback Action |
+|-----------|-------------|-----------------|
+| **No pyproject.toml found** | Error message | Suggest `uv init` |
+| **Invalid environment** | Recreate environment | Use cached packages |
+| **Python version mismatch** | Download compatible Python | Use UV-managed Python |
+| **Network unavailable** | Use cached packages | Fail if not cached |
+| **Permission denied** | Error with suggestion | Check file permissions |
+
+### 7. Debugging Detection Process
+
+You can trace UV's detection process:
+
+```bash
+# Enable verbose output to see detection steps
+uv run --verbose python script.py
+
+# Check what UV detects
+uv python list          # Available Python versions
+uv tree                # Dependency tree
+uv show --project      # Project information
+```
+
+This systematic approach ensures UV's behavior is predictable and debuggable, following clear hierarchies and search patterns rather than arbitrary detection logic.
+
 #### Environment Locations and Management
 
 | Component | Location | Purpose |
