@@ -30,6 +30,10 @@ poetry run python my_script.py  # One-off execution
 UV implements a more tightly integrated system:
 
 1. **Managed Environment**: Creates and manages `.venv` automatically
+   - **When**: On first `uv run`, `uv sync`, or `uv add` command
+   - **By Whom**: UV binary process (`/opt/homebrew/bin/uv`)
+   - **How**: Detects missing `.venv`, creates virtual environment, installs dependencies from `uv.lock`
+   - **What**: Complete Python environment with interpreter + packages in `{project}/.venv/`
 2. **Runtime Mediation**: Requires `uv run` for project execution
 3. **Automatic Synchronization**: Ensures environment is up-to-date on every invocation
 4. **Lockfile Integration**: Automatically manages `uv.lock` file
