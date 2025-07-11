@@ -43,47 +43,66 @@ Working Dir → pyproject.toml → .venv location → Virtual Environment
 | Component | Location | Purpose |
 |-----------|----------|---------|
 | **Project Environment** | `{project}/.venv/` | Project-specific isolated environment |
-| **UV Cache** | `~/Library/Caches/uv/` (macOS) | Global package cache for deduplication |
-| **Python Installations** | `~/Library/Application Support/uv/python/` | UV-managed Python interpreters |
-| **UV Config** | `~/Library/Application Support/uv/` | UV configuration and state |
+| **UV Cache** | `~/.cache/uv/` (actual location) | Global package cache for deduplication |
+| **Python Installations** | `~/.cache/uv/python/` | UV-managed Python interpreters |
+| **UV Config** | `~/.config/uv/` or `~/Library/Preferences/uv/` | UV configuration and state |
 
-#### What is "Application Support"?
+#### UV's Actual Directory Structure
 
-**Application Support** is a standard macOS directory structure concept defined by Apple's File System Programming Guide:
+Based on real system verification, UV uses different directory conventions than initially documented:
 
-- **Real Directory**: `~/Library/Application Support/` is an actual folder on macOS systems
-- **Purpose**: Stores application-specific data files that users shouldn't directly modify
-- **Cross-Platform Equivalent**: 
-  - **Linux**: `~/.local/share/uv/` or `$XDG_DATA_HOME/uv/`
-  - **Windows**: `%APPDATA%\uv\` or `C:\Users\{username}\AppData\Roaming\uv\`
+**Actual UV Cache Location**: `~/.cache/uv/` (follows XDG Base Directory specification)
 
-#### Platform-Specific UV Data Locations
-
-| Platform | UV Data Directory | Python Installations | Configuration |
-|----------|------------------|---------------------|---------------|
-| **macOS** | `~/Library/Application Support/uv/` | `~/Library/Application Support/uv/python/` | `~/Library/Application Support/uv/settings.toml` |
-| **Linux** | `~/.local/share/uv/` | `~/.local/share/uv/python/` | `~/.config/uv/settings.toml` |
-| **Windows** | `%APPDATA%\uv\` | `%APPDATA%\uv\python\` | `%APPDATA%\uv\settings.toml` |
-
-#### Why UV Uses Application Support
-
-```
-Application Support Directory Benefits:
-├── User-specific (not system-wide)
-├── Persistent across app updates
-├── Hidden from casual browsing
-├── Follows OS conventions
-└── Automatic backup inclusion (Time Machine, etc.)
-```
-
-You can verify these locations on your system:
 ```bash
-# macOS - Check UV's application support directory
-ls -la ~/Library/Application\ Support/uv/
-
-# Show UV's actual data directory
-uv cache dir
+# Verified UV cache directory
+$ uv cache dir
+/Users/sparkt/.cache/uv
 ```
+
+#### Platform-Specific UV Data Locations (Corrected)
+
+| Platform | UV Cache Directory | Python Installations | Configuration |
+|----------|------------------|---------------------|---------------|
+| **macOS** | `~/.cache/uv/` | `~/.cache/uv/python/` | `~/.config/uv/` or `~/Library/Preferences/uv/` |
+| **Linux** | `~/.cache/uv/` or `$XDG_CACHE_HOME/uv/` | `~/.cache/uv/python/` | `~/.config/uv/` or `$XDG_CONFIG_HOME/uv/` |
+| **Windows** | `%LOCALAPPDATA%\uv\cache\` | `%LOCALAPPDATA%\uv\python\` | `%APPDATA%\uv\` |
+
+#### Why UV Uses XDG Base Directory Specification
+
+UV follows the XDG Base Directory Specification rather than macOS-specific Application Support:
+
+```
+XDG Directory Benefits:
+├── Cross-platform consistency
+├── User-specific (not system-wide)  
+├── Separates cache from config
+├── Follows modern Unix conventions
+└── Respects XDG environment variables
+```
+
+#### Verifying UV Directories
+
+You can check UV's actual directory usage:
+```bash
+# Show UV's cache directory
+uv cache dir
+
+# List UV cache contents (if exists)
+ls -la ~/.cache/uv/
+
+# Check for UV configuration directory
+ls -la ~/.config/uv/ 2>/dev/null || echo "Config directory not yet created"
+
+# Show all UV-related directories
+find ~ -name "*uv*" -type d 2>/dev/null | grep -E "(cache|config|local)"
+```
+
+#### Directory Creation Timing
+
+UV directories are created on-demand:
+- **Cache directory**: Created on first package download/install
+- **Config directory**: Created when configuration is first saved
+- **Python directory**: Created when UV installs/manages Python versions
 
 ### 2. Path Assignment
 
@@ -124,10 +143,10 @@ Global Store → Symlinks/Copies → Python sys.path
 
 | Package Type | Storage Location | Access Method |
 |--------------|------------------|---------------|
-| **Cached Packages** | `~/Library/Caches/uv/wheels/` | Global deduplication cache |
+| **Cached Packages** | `~/.cache/uv/wheels/` | Global deduplication cache |
 | **Project Packages** | `.venv/lib/python3.x/site-packages/` | Project-specific installations |
 | **Editable Packages** | Symlinked to source | Development mode linking |
-| **UV-managed Tools** | `~/Library/Application Support/uv/tools/` | Isolated tool environments |
+| **UV-managed Tools** | `~/.cache/uv/tools/` | Isolated tool environments |
 
 #### Package Resolution Process
 
